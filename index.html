@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EVILBADGER</title>
+  <style>
+    :root{
+      --bg: #fbfbfe;
+      --card: #ffffff;
+      --text: #111418;
+      --muted: #5a6472;
+      --border: rgba(17,20,24,.10);
+      --shadow: 0 12px 30px rgba(17,20,24,.08);
+      --accent: #6d5efc;
+      --accent2:#19c37d;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg: #0c0f14;
+        --card: #0f141b;
+        --text: #eef2f8;
+        --muted: #a9b4c3;
+        --border: rgba(238,242,248,.10);
+        --shadow: 0 14px 34px rgba(0,0,0,.35);
+        --accent:#8b7bff;
+        --accent2:#35d49a;
+      }
+    }
+
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      font:16px/1.65 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* Full-height container */
+    .wrap{
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 18px 20px;
+      min-height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+    }
+
+    /* Card uses flex column so footer can stick to bottom */
+    .card{
+      flex: 1;
+      min-height: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 26px;
+      box-sizing: border-box;
+
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* main content area should take remaining space */
+    .content{
+      flex: 1;
+      min-height: 0;
+    }
+
+    header{ margin-bottom: 10px; }
+    h1{
+      margin: 0 0 6px;
+      font-size: 30px;
+      letter-spacing: .8px;
+    }
+    .tagline{
+      margin: 0;
+      color: var(--muted);
+      max-width: 62ch;
+    }
+
+    .bar{
+      height: 2px;
+      width: 100%;
+      margin: 18px 0 14px;
+      background: linear-gradient(90deg, var(--accent), transparent 60%);
+      opacity: .9;
+      border-radius: 999px;
+    }
+
+    .section-title{
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+
+    ul{ list-style:none; padding:0; margin: 12px 0 0; }
+    li{ padding: 6px 0; }
+
+    a{
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover{ text-decoration: underline; text-underline-offset: 3px; }
+
+    .title{
+      font-weight: 750;
+      color: var(--text);
+      border-bottom: 1px solid transparent;
+    }
+    .title:hover{ border-bottom-color: rgba(109,94,252,.45); }
+
+    .dash{ opacity: .55; padding: 0 8px; color: var(--muted); }
+    .desc{ color: var(--muted); }
+
+    /* Row hover */
+    .row{
+      padding: 10px 12px;
+      border-radius: 14px;
+      transition: transform .08s ease, background .12s ease;
+    }
+    .row:hover{
+      background: rgba(109,94,252,.07);
+      transform: translateY(-1px);
+    }
+    @media (prefers-color-scheme: dark){
+      .row:hover{ background: rgba(139,123,255,.10); }
+    }
+
+    footer{
+      margin-top: auto; /* <-- pins footer to bottom of card */
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.95em;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: rgba(109,94,252,.10);
+      border: 1px solid rgba(109,94,252,.18);
+      color: var(--text);
+    }
+
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.45);
+      white-space: nowrap;
+    }
+    @media (prefers-color-scheme: dark){
+      .pill{ background: rgba(255,255,255,.03); }
+    }
+    .dot{
+      width: 8px; height: 8px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 0 3px rgba(109,94,252,.12);
+      flex: 0 0 auto;
+    }
+
+    /* --- Responsive tweaks --- */
+    @media (max-width: 560px){
+      .wrap{ padding: 12px; }
+      .card{
+        padding: 18px;
+        border-radius: 16px;
+        gap: 14px;
+      }
+      h1{ font-size: 26px; }
+      .bar{ margin: 14px 0 12px; }
+      .row{ padding: 10px 10px; }
+
+      /* Make "Title — desc" wrap nicely on narrow screens */
+      .dash{ padding: 0 6px; }
+      .desc{ display: inline; }
+      footer{
+        gap: 8px;
+        justify-content: flex-start;
+      }
+    }
+
+    /* Extra-narrow: stack each project into two lines (still similar, just cleaner) */
+    @media (max-width: 380px){
+      .row{
+        display: block;
+      }
+      .dash{ display: none; }
+      .desc{
+        display: block;
+        margin-top: 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="card">
+      <div class="content">
+        <header>
+          <h1>EVILBADGER</h1>
+          <p class="tagline">Little web apps made as experiments or to prove a certain point.</p>
+          <div class="bar"></div>
+          <p class="section-title">List of projects:</p>
+        </header>
+
+        <ul>
+          <!--
+            ADD NEW PROJECT (copy/paste)
+            1) skopiuj <li>...</li> z TEMPLATE
+            2) wklej POD TYM KOMENTARZEM, żeby nowy był na górze
+            3) ustaw href="folder/folder.html", nazwę i opis
+          -->
+
+          <!-- TEMPLATE -->
+          <!--
+          <li class="row">
+            <a class="title" href="myproject/myproject.html">My Project</a>
+            <span class="dash">—</span>
+            <span class="desc">Opis Lorem ipsum dolor ameno dorime</span>
+          </li>
+          -->
+
+          <li class="row">
+            <a class="title" href="2.5d-text/2.5d-text.html">2.5d-text</a>
+            <span class="dash">—</span>
+            <span class="desc">Opis Lorem ipsum dolor ameno dorime</span>
+          </li>
+
+          <li class="row">
+            <a class="title" href="bubblemoji/bubblemoji.html">bubblemoji</a>
+            <span class="dash">—</span>
+            <span class="desc">Opis Lorem ipsum dolor ameno dorime</span>
+          </li>
+
+       
+        </ul>
+      </div>
+
+      <footer>
+        <span class="pill"><span class="dot"></span> GitHub Pages-friendly</span>
+        <span>Each project is <code>folder/folder.html</code></span>
+      </footer>
+    </div>
+  </main>
+</body>
+</html>

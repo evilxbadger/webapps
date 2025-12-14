@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>animated text</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600&family=Pacifico&family=Playfair+Display:wght@400;600&family=Poppins:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: #d6e4ff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #000;
+    }
+
+    .canvas-wrapper {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 5px;
+      background: #000;
+      z-index: 0;
+    }
+
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #000;
+    }
+
+    /* --- LEFT PANEL --- */
+    .controls {
+      position: fixed;
+      top: 50%;
+      left: 16px;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: stretch;
+      max-width: 320px;
+      width: 320px;
+      z-index: 1;
+      pointer-events: auto;
+    }
+
+    .group {
+      background: rgba(10, 18, 46, 0.92);
+      padding: 12px 14px;
+      border-radius: 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border: 1px solid rgba(120, 160, 255, 0.55);
+    }
+
+    .control {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+      font-size: 13px;
+      color: #e2ebff;
+    }
+
+    .value {
+      margin-left: 8px;
+      font-variant-numeric: tabular-nums;
+      color: #a9bfff;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(120,160,255,0.7);
+      background: rgba(2, 8, 28, 0.95);
+      color: #e2ebff;
+      font-size: 13px;
+      outline: none;
+      box-sizing: border-box; /* fix full width */
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: rgba(160,190,255,1);
+      box-shadow: 0 0 6px rgba(120,160,255,0.9);
+    }
+
+    /* custom arrow on <select> aligned to the right */
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding-right: 34px;
+      background-image:
+        linear-gradient(45deg, #d6e4ff 50%, transparent 50%),
+        linear-gradient(135deg, #d6e4ff 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) 50%,
+        calc(100% - 12px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
+
+    /* Bigger joystick */
+    .joystick-box {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 160, 255, 0.65);
+      background: radial-gradient(circle at 50% 50%, rgba(120,160,255,0.15), rgba(2,6,23,0.9));
+      box-shadow: 0 0 12px rgba(0,0,0,0.9);
+      cursor: pointer;
+      touch-action: none;
+      margin-top: 4px;
+    }
+
+    .joystick-knob {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background: #e2ebff;
+      box-shadow: 0 0 14px rgba(160,190,255,0.95);
+      transform: translate(-50%, -50%);
+      left: 50%;
+      top: 50%;
+      pointer-events: none;
+    }
+
+    button {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(120,160,255,0.9);
+      background: radial-gradient(circle at 0 0, rgba(80,120,255,0.55), rgba(4,10,34,0.95));
+      color: #e2ebff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 14px rgba(138,180,255,0.9);
+      border-color: rgba(170,200,255,1);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 0 5px rgba(80,120,255,0.8);
+    }
+
+    /* Mobile: move panel to bottom */
+    @media (max-width: 900px) {
+      .controls {
+        top: auto;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas-wrapper">
+    <canvas id="heartCanvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="group">
+      <div class="control">
+        <label>
+          text
+          <span class="value" id="textLenValue">16/25</span>
+        </label>
+        <input type="text" id="textInput" maxlength="25" value="lorem ipsum dolo" />
+      </div>
+
+      <div class="control">
+        <label>
+          font
+          <span class="value" id="fontPreviewValue">System (sans)</span>
+        </label>
+        <select id="fontSelect">
+          <option value="system">System (sans)</option>
+          <option value="poppins">Poppins</option>
+          <option value="playfair">Playfair Display</option>
+          <option value="dancing">Dancing Script</option>
+          <option value="pacifico">Pacifico</option>
+          <option value="mono">JetBrains Mono</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label>
+          colors
+          <span class="value"></span>
+        </label>
+        <button id="randomColorsBtn">Randomize colors</button>
+      </div>
+
+      <div class="control">
+        <label>
+          text count
+          <span class="value" id="countValue">80</span>
+        </label>
+        <input type="range" id="countSlider" min="1" max="500" value="80" />
+      </div>
+
+      <div class="control">
+        <label>
+          speed
+          <span class="value" id="speedValue">0.60</span>
+        </label>
+        <input type="range" id="speedSlider" min="0" max="2" step="0.01" value="0.60" />
+      </div>
+
+      <div class="control">
+        <label>
+          zoom
+          <span class="value" id="zoomValue">1.00×</span>
+        </label>
+        <input type="range" id="zoomSlider" min="0.5" max="2" step="0.01" value="1" />
+      </div>
+
+      <div class="control">
+        <label>
+          rotation X/Y
+          <span class="value" id="rotXYValue">X: 0° · Y: 0°</span>
+        </label>
+        <div class="joystick-box" id="joystickBox">
+          <div class="joystick-knob" id="joystickKnob"></div>
+        </div>
+      </div>
+
+      <div class="control">
+        <label>
+          rotation Z
+          <span class="value" id="rotZValue">0°</span>
+        </label>
+        <input type="range" id="rotZSlider" min="-180" max="180" value="0" />
+      </div>
+
+      <div class="control">
+        <label>
+          fade out
+          <span class="value" id="fadeValue">85%</span>
+        </label>
+        <input type="range" id="fadeSlider" min="0" max="100" step="1" value="85" />
+      </div>
+
+      <div class="control">
+        <label>
+          glow
+          <span class="value" id="glowValue">0.0×</span>
+        </label>
+        <input type="range" id="glowSlider" min="0" max="3" step="0.1" value="0" />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("heartCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const textInput = document.getElementById("textInput");
+    const textLenValue = document.getElementById("textLenValue");
+
+    const fontSelect = document.getElementById("fontSelect");
+    const fontPreviewValue = document.getElementById("fontPreviewValue");
+
+    const countSlider = document.getElementById("countSlider");
+    const speedSlider = document.getElementById("speedSlider");
+    const countValue = document.getElementById("countValue");
+    const speedValue = document.getElementById("speedValue");
+
+    const zoomSlider  = document.getElementById("zoomSlider");
+    const zoomValue   = document.getElementById("zoomValue");
+
+    const rotZSlider = document.getElementById("rotZSlider");
+    const rotZValue = document.getElementById("rotZValue");
+
+    const joystickBox = document.getElementById("joystickBox");
+    const joystickKnob = document.getElementById("joystickKnob");
+    const rotXYValue = document.getElementById("rotXYValue");
+
+    const fadeSlider = document.getElementById("fadeSlider");
+    const fadeValue = document.getElementById("fadeValue");
+
+    const glowSlider = document.getElementById("glowSlider");
+    const glowValue = document.getElementById("glowValue");
+
+    const randomColorsBtn = document.getElementById("randomColorsBtn");
+
+    const FONT_PRESETS = {
+      system: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      playfair: "'Playfair Display', 'Times New Roman', serif",
+      dancing: "'Dancing Script', 'Comic Sans MS', cursive",
+      pacifico: "'Pacifico', 'Comic Sans MS', cursive",
+      mono: "'JetBrains Mono', 'Consolas', 'Fira Code', monospace"
+    };
+    let currentFontFamily = FONT_PRESETS.system;
+
+    let viewWidth = window.innerWidth;
+    let viewHeight = window.innerHeight;
+
+    const BASE_FONT_SIZE = 18;
+    const MIN_FONT_SIZE = 10;
+    const MAX_FONT_SIZE = 60;
+    let zoom = parseFloat(zoomSlider.value);
+    let currentFontSize = BASE_FONT_SIZE;
+
+    let text = textInput.value;
+    let textWidth = 200;
+    let baseHaloWidth = 200;
+    let baseHaloHeight = 60;
+
+    let count = parseInt(countSlider.value, 10);
+    let speed = parseFloat(speedSlider.value);
+    let offset = 0;
+    let lastTime = performance.now();
+
+    const HEART_MAX_RADIUS = 17;
+    const HEART_MARGIN = 0.18;
+
+    let modelPoints = [];
+    let pathLength = 0;
+
+    let centerX = 0;
+    let centerY = 0;
+    let baseScale = 1;
+    let cameraDist = 1000;
+
+    let rotX = 0;
+    let rotY = 0;
+    let rotZ = 0;
+    const MAX_X_DEG = 60;
+    const MAX_Y_DEG = 60;
+
+    let fadeStrength = parseInt(fadeSlider.value, 10) / 100;
+    let glowStrength = parseFloat(glowSlider.value);
+
+    const MAX_COLORS = 500;
+    const colorsHex = new Array(MAX_COLORS);
+    function initDefaultColors() {
+      for (let i = 0; i < MAX_COLORS; i++) colorsHex[i] = "#f8c6d8";
+    }
+    initDefaultColors();
+
+    const HALO_BASE_SIZE = 200;
+    const haloBaseCanvas = document.createElement("canvas");
+    haloBaseCanvas.width = HALO_BASE_SIZE;
+    haloBaseCanvas.height = HALO_BASE_SIZE;
+    const hb = haloBaseCanvas.getContext("2d");
+
+    function initHaloBase() {
+      const r = HALO_BASE_SIZE / 2;
+      const g = hb.createRadialGradient(r, r, 0, r, r, r);
+      g.addColorStop(0.0, "rgba(255,255,255,1)");
+      g.addColorStop(1.0, "rgba(255,255,255,0)");
+      hb.clearRect(0, 0, HALO_BASE_SIZE, HALO_BASE_SIZE);
+      hb.fillStyle = g;
+      hb.beginPath();
+      hb.arc(r, r, r, 0, Math.PI * 2);
+      hb.fill();
+    }
+    initHaloBase();
+
+    const haloColorCache = new Map();
+    const HALO_CACHE_MAX = 512;
+
+    function getHaloSpriteForColor(hex) {
+      if (haloColorCache.has(hex)) return haloColorCache.get(hex);
+      const off = document.createElement("canvas");
+      off.width = HALO_BASE_SIZE;
+      off.height = HALO_BASE_SIZE;
+      const octx = off.getContext("2d");
+
+      octx.drawImage(haloBaseCanvas, 0, 0);
+      octx.globalCompositeOperation = "source-in";
+      octx.fillStyle = hex;
+      octx.fillRect(0, 0, HALO_BASE_SIZE, HALO_BASE_SIZE);
+
+      haloColorCache.set(hex, off);
+      if (haloColorCache.size > HALO_CACHE_MAX) {
+        const firstKey = haloColorCache.keys().next().value;
+        haloColorCache.delete(firstKey);
+      }
+      return off;
+    }
+
+    function heartPointRaw(t) {
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y =
+        13 * Math.cos(t) -
+        5 * Math.cos(2 * t) -
+        2 * Math.cos(3 * t) -
+        Math.cos(4 * t);
+      return { x, y };
+    }
+
+    function recomputeModelPath() {
+      modelPoints = [];
+      pathLength = 0;
+
+      const w = viewWidth;
+      const h = viewHeight;
+      if (!w || !h) return;
+
+      const minDim = Math.min(w, h);
+      const baseScaleViewport =
+        (minDim * (1 - HEART_MARGIN)) / (2 * HEART_MAX_RADIUS);
+      baseScale = baseScaleViewport * zoom;
+
+      const heartHeight = 2 * HEART_MAX_RADIUS * baseScale;
+
+      centerX = w / 2;
+      centerY = heartHeight / 2;
+
+      const depthAmp = baseScale * 0.9;
+      const R = 20;
+
+      const topRaw = heartPointRaw(Math.PI);
+      const botRaw = heartPointRaw(0);
+
+      const topBaseX = topRaw.x * baseScale;
+      const topBaseY = -topRaw.y * baseScale;
+      const bottomBaseX = botRaw.x * baseScale;
+      const bottomBaseY = -botRaw.y * baseScale;
+
+      const topCenter = { x: topBaseX, y: topBaseY + R };
+      const bottomCenter = { x: bottomBaseX, y: bottomBaseY - R };
+
+      const N = 800;
+      let prev = null;
+
+      for (let i = 0; i <= N; i++) {
+        const t = (i / N) * Math.PI * 2;
+        const raw = heartPointRaw(t);
+        let x = raw.x * baseScale;
+        let y = -raw.y * baseScale;
+
+        const dTopT = Math.min(Math.abs(t - Math.PI), 2 * Math.PI - Math.abs(t - Math.PI));
+        if (dTopT < 0.9) {
+          const dx = x - topCenter.x;
+          const dy = y - topCenter.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < R) {
+            const k = R / (dist || 1e-6);
+            x = topCenter.x + dx * k;
+            y = topCenter.y + dy * k;
+          }
+        }
+
+        const dBotT = Math.min(t, 2 * Math.PI - t);
+        if (dBotT < 0.9) {
+          const dx = x - bottomCenter.x;
+          const dy = y - bottomCenter.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > R && y > bottomCenter.y) {
+            const k = R / dist;
+            x = bottomCenter.x + dx * k;
+            y = bottomCenter.y + dy * k;
+          }
+        }
+
+        const depth = Math.cos(t);
+        const z = depthAmp * depth;
+
+        const point = { t, x, y, z, s: 0 };
+        if (prev) {
+          const segLen = Math.hypot(x - prev.x, y - prev.y, z - prev.z);
+          pathLength += segLen;
+          point.s = pathLength;
+        }
+        modelPoints.push(point);
+        prev = point;
+      }
+
+      if (!pathLength) return;
+      for (const p of modelPoints) p.s /= pathLength;
+
+      cameraDist = baseScale * 20;
+    }
+
+    function sampleModel(u) {
+      if (!modelPoints.length) return { x: 0, y: 0, z: 0 };
+      u = ((u % 1) + 1) % 1;
+
+      let lo = 0;
+      let hi = modelPoints.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (modelPoints[mid].s < u) lo = mid;
+        else hi = mid;
+      }
+
+      const p0 = modelPoints[lo];
+      const p1 = modelPoints[hi];
+      const span = p1.s - p0.s || 1;
+      const f = (u - p0.s) / span;
+
+      return {
+        x: p0.x + (p1.x - p0.x) * f,
+        y: p0.y + (p1.y - p0.y) * f,
+        z: p0.z + (p1.z - p0.z) * f,
+      };
+    }
+
+    function projectPoint(p) {
+      let x = p.x;
+      let y = p.y;
+      let z = p.z;
+
+      const cx = Math.cos(rotX);
+      const sx = Math.sin(rotX);
+      let y1 = y * cx - z * sx;
+      let z1 = y * sx + z * cx;
+      y = y1;
+      z = z1;
+
+      const cy = Math.cos(rotY);
+      const sy = Math.sin(rotY);
+      let x2 = x * cy + z * sy;
+      let z2 = -x * sy + z * cy;
+      x = x2;
+      z = z2;
+
+      const cz = Math.cos(rotZ);
+      const sz = Math.sin(rotZ);
+      let x3 = x * cz - y * sz;
+      let y3 = x * sz + y * cz;
+      x = x3;
+      y = y3;
+
+      const nearZ = baseScale * 4;
+      const farZ = -baseScale * 4;
+      let depthNorm = (z - farZ) / (nearZ - farZ);
+      depthNorm = Math.max(0, Math.min(1, depthNorm));
+
+      const d = cameraDist;
+      const zClamped = Math.min(z, d - 1);
+      const persp = d / (d - zClamped);
+
+      const sx2 = centerX + x * persp;
+      const sy2 = centerY + y * persp;
+
+      return { x: sx2, y: sy2, depth: depthNorm };
+    }
+
+    function updateFontFromZoom() {
+      const rawSize = BASE_FONT_SIZE * zoom;
+      currentFontSize = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, rawSize));
+    }
+
+    function updateTextMetrics() {
+      updateFontFromZoom();
+      ctx.font = `${currentFontSize}px ${currentFontFamily}`;
+      const metrics = ctx.measureText(text || "lorem ipsum dolo");
+      textWidth = metrics.width || 150;
+      baseHaloWidth = textWidth * 1.4;
+      baseHaloHeight = currentFontSize * 3.0;
+    }
+
+    function drawFrame(timestamp) {
+      const dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+      offset = (offset + dt * speed * 0.1) % 1;
+
+      ctx.clearRect(0, 0, viewWidth, viewHeight);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+      ctx.font = `${currentFontSize}px ${currentFontFamily}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      const nearAlpha = 1.0;
+      const farAlpha = 1.0 - fadeStrength;
+      const glowIntensity = glowStrength / 10;
+
+      for (let i = 0; i < count; i++) {
+        const u = (offset + i / count) % 1;
+        const p3 = sampleModel(u);
+        const p2 = projectPoint(p3);
+
+        const depth = p2.depth;
+        const alpha = farAlpha + (nearAlpha - farAlpha) * depth;
+        if (alpha <= 0.001) continue;
+
+        const cHex = colorsHex[i % MAX_COLORS];
+
+        if (glowIntensity > 0.0001) {
+          const haloSprite = getHaloSpriteForColor(cHex);
+          const depthScale = 0.9 + 0.4 * depth;
+          const wScale = 0.7 + 3.0 * glowIntensity;
+          const hScale = 0.7 + 2.0 * glowIntensity;
+
+          const haloW = baseHaloWidth * wScale * depthScale;
+          const haloH = baseHaloHeight * hScale * depthScale;
+
+          const haloAlpha = alpha * (0.25 + 2.2 * glowIntensity);
+
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = haloAlpha;
+          ctx.drawImage(
+            haloSprite,
+            p2.x - haloW / 2,
+            p2.y - haloH / 2,
+            haloW,
+            haloH
+          );
+        }
+
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = cHex;
+        ctx.fillText(text, p2.x, p2.y);
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    function updateTextFromInput() {
+      text = textInput.value.slice(0, 25);
+      textInput.value = text;
+      textLenValue.textContent = `${text.length}/25`;
+      updateTextMetrics();
+    }
+
+    function updateFontFamilyFromSelect() {
+      const key = fontSelect.value;
+      currentFontFamily = FONT_PRESETS[key] || FONT_PRESETS.system;
+      fontPreviewValue.textContent =
+        fontSelect.options[fontSelect.selectedIndex].textContent;
+      updateTextMetrics();
+    }
+
+    textInput.addEventListener("input", updateTextFromInput);
+    fontSelect.addEventListener("change", updateFontFamilyFromSelect);
+
+    countSlider.addEventListener("input", () => {
+      count = parseInt(countSlider.value, 10);
+      countValue.textContent = count.toString();
+    });
+
+    speedSlider.addEventListener("input", () => {
+      speed = parseFloat(speedSlider.value);
+      speedValue.textContent = speed.toFixed(2);
+    });
+
+    zoomSlider.addEventListener("input", () => {
+      zoom = parseFloat(zoomSlider.value);
+      zoomValue.textContent = zoom.toFixed(2) + "×";
+      recomputeModelPath();
+      updateTextMetrics();
+    });
+
+    function degToRad(deg) {
+      return (deg * Math.PI) / 180;
+    }
+
+    rotZSlider.addEventListener("input", () => {
+      const deg = parseInt(rotZSlider.value, 10);
+      rotZ = degToRad(deg);
+      rotZValue.textContent = deg + "°";
+    });
+
+    fadeSlider.addEventListener("input", () => {
+      const val = parseInt(fadeSlider.value, 10);
+      fadeStrength = val / 100;
+      fadeValue.textContent = val + "%";
+    });
+
+    glowSlider.addEventListener("input", () => {
+      glowStrength = parseFloat(glowSlider.value);
+      glowValue.textContent = glowStrength.toFixed(1) + "×";
+    });
+
+    let isDraggingStick = false;
+
+    function updateStickFromEvent(e) {
+      const rect = joystickBox.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      let dx = (e.clientX - cx) / (rect.width / 2);
+      let dy = (e.clientY - cy) / (rect.height / 2);
+
+      const len = Math.hypot(dx, dy);
+      if (len > 1) {
+        dx /= len;
+        dy /= len;
+      }
+
+      const rotXDeg = dy * MAX_X_DEG;
+      const rotYDeg = dx * MAX_Y_DEG;
+
+      rotX = degToRad(rotXDeg);
+      rotY = degToRad(rotYDeg);
+
+      rotXYValue.textContent = `X: ${Math.round(rotXDeg)}° · Y: ${Math.round(rotYDeg)}°`;
+
+      joystickKnob.style.left = (50 + dx * 40) + "%";
+      joystickKnob.style.top  = (50 + dy * 40) + "%";
+    }
+
+    joystickBox.addEventListener("pointerdown", (e) => {
+      isDraggingStick = true;
+      joystickBox.setPointerCapture(e.pointerId);
+      updateStickFromEvent(e);
+    });
+
+    joystickBox.addEventListener("pointermove", (e) => {
+      if (!isDraggingStick) return;
+      updateStickFromEvent(e);
+    });
+
+    joystickBox.addEventListener("pointerup", (e) => {
+      isDraggingStick = false;
+      joystickBox.releasePointerCapture(e.pointerId);
+    });
+
+    joystickBox.addEventListener("pointercancel", (e) => {
+      isDraggingStick = false;
+      joystickBox.releasePointerCapture(e.pointerId);
+    });
+
+    function randomPastelColor() {
+      const h = Math.random() * 360;
+      const s = 60 + Math.random() * 20;
+      const l = 65 + Math.random() * 15;
+
+      const c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
+      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+      const m = l / 100 - c / 2;
+
+      let r1 = 0, g1 = 0, b1 = 0;
+      if (0 <= h && h < 60)      { r1 = c; g1 = x; b1 = 0; }
+      else if (h < 120)          { r1 = x; g1 = c; b1 = 0; }
+      else if (h < 180)          { r1 = 0; g1 = c; b1 = x; }
+      else if (h < 240)          { r1 = 0; g1 = x; b1 = c; }
+      else if (h < 300)          { r1 = x; g1 = 0; b1 = c; }
+      else                       { r1 = c; g1 = 0; b1 = x; }
+
+      const r = Math.round((r1 + m) * 255);
+      const g = Math.round((g1 + m) * 255);
+      const b = Math.round((b1 + m) * 255);
+
+      return "#" + [r,g,b].map(v => v.toString(16).padStart(2,"0")).join("");
+    }
+
+    function randomizeColors() {
+      for (let i = 0; i < MAX_COLORS; i++) {
+        colorsHex[i] = randomPastelColor();
+      }
+    }
+    randomColorsBtn.addEventListener("click", randomizeColors);
+
+    function resizeCanvas() {
+      canvas.width = viewWidth;
+      canvas.height = viewHeight;
+      ctx.setTransform(1,0,0,1,0,0);
+      recomputeModelPath();
+      updateTextMetrics();
+    }
+
+    window.addEventListener("resize", () => {
+      viewWidth = window.innerWidth;
+      viewHeight = window.innerHeight;
+      resizeCanvas();
+    });
+
+    (function init() {
+      viewWidth = window.innerWidth;
+      viewHeight = window.innerHeight;
+      resizeCanvas();
+      updateTextFromInput();
+      updateFontFamilyFromSelect();
+      countValue.textContent = count.toString();
+      speedValue.textContent = speed.toFixed(2);
+      zoomValue.textContent  = zoom.toFixed(2) + "×";
+      fadeValue.textContent  = Math.round(fadeStrength * 100) + "%";
+      glowValue.textContent  = glowStrength.toFixed(1) + "×";
+      requestAnimationFrame(drawFrame);
+    })();
+  </script>
+</body>
+</html>

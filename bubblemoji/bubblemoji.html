@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Emoji Polygon — Real FPS + Characters</title>
+<style>
+  html, body { margin: 0; height: 100%; background:#0b0d12; overflow:hidden; }
+  canvas { display:block; background:#0f1219; touch-action:none; }
+
+  .hud{
+    position:fixed;
+    left:12px; top:10px;
+    color:#c6d0f5; font:14px system-ui, sans-serif;
+    background:rgba(0,0,0,0.45);
+    padding:10px 12px;
+    border-radius:10px;
+    backdrop-filter: blur(4px);
+    display:flex; flex-direction:column; gap:10px;
+    z-index: 10;
+    max-width: calc(100vw - 24px);
+    width: 390px;
+  }
+
+  .row{
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    width:100%;
+  }
+
+  .hint{
+    width:100%;
+    font-size:12px;
+    color: rgba(198,208,245,0.65);
+    letter-spacing: .2px;
+    margin-top: -2px;
+    margin-bottom: 2px;
+    user-select:none;
+  }
+
+  .control-row{
+    display:grid;
+    grid-template-columns: 110px 1fr 80px;
+    align-items:center;
+    gap:10px;
+    width:100%;
+  }
+  .control-row .name{
+    text-align:left;
+    white-space:nowrap;
+    opacity:.97;
+  }
+  .control-row input[type="range"]{ width:100%; margin:0; }
+  .control-row .val{
+    text-align:right;
+    font-variant-numeric: tabular-nums;
+    white-space:nowrap;
+  }
+
+  .toggle-row{
+    display:grid;
+    grid-template-columns: 110px 1fr;
+    align-items:center;
+    gap:10px;
+    width:100%;
+  }
+  .toggle-row .name{ white-space:nowrap; opacity:.9; }
+
+  .segmented{
+    display:flex; width:100%;
+    border:1px solid #30384f;
+    border-radius:8px;
+    overflow:hidden;
+    background:#141a27;
+  }
+  .segmented button{
+    flex:1;
+    background:transparent;
+    border:none;
+    padding:7px 8px;
+    font-size:13px;
+    color:#cfd6ff;
+    cursor:pointer;
+    user-select:none;
+  }
+  .segmented button + button{ border-left:1px solid #30384f; }
+  .segmented button.active{
+    background:#222a3d;
+    color:#ffffff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  .pillbar{ display:flex; gap:8px; flex-wrap:wrap; width:100%; }
+  .pill{
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid #30384f;
+    background:#141a27;
+    color:#cfd6ff;
+    font-size:13px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .pill.active{ background:#222a3d; color:#fff; }
+
+  button.control{
+    background:#1b2130; color:#e6ebff; border:1px solid #30384f;
+    padding:8px 12px; border-radius:8px; cursor:pointer;
+    font-size:16px; line-height:1;
+    min-width:44px; display:inline-flex; align-items:center; justify-content:center;
+    user-select:none;
+  }
+  button.control:hover{ background:#222a3d; }
+
+  @media (orientation: landscape) {
+    .hud { top:auto; bottom:12px; left:12px; right:auto; transform:none; align-items:flex-start; }
+  }
+
+  @media (orientation: portrait) and (max-width: 768px) {
+    .hud {
+      top:auto; bottom:10px; left:50%; right:auto; transform:translateX(-50%);
+      width: calc(100vw - 20px); max-width: calc(100vw - 20px);
+      align-items:center; text-align:center;
+    }
+    .control-row{ grid-template-columns: 90px 1fr 70px; }
+    .control-row .name{ text-align:right; }
+    .toggle-row{ grid-template-columns: 90px 1fr; }
+    .toggle-row .name{ text-align:right; }
+    .row { justify-content:center; }
+    .pillbar{ justify-content:center; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud">
+  <div class="row" id="stats"></div>
+  <div class="hint">drag the polygon to stir the objects</div>
+
+  <div class="control-row">
+    <div class="name">Speed</div>
+    <input id="speedSlider" type="range" min="0" max="5" step="0.05" value="2.50">
+    <div class="val" id="speedVal">2.50×</div>
+  </div>
+
+  <div class="control-row">
+    <div class="name">Size</div>
+    <input id="sizeSlider" type="range" min="0.40" max="1.60" step="0.01" value="1.00">
+    <div class="val" id="sizeVal">1.00×</div>
+  </div>
+
+  <div class="control-row">
+    <div class="name">Max sides</div>
+    <input id="maxSidesSlider" type="range" min="3" max="100" step="1" value="50">
+    <div class="val" id="maxSidesVal">50</div>
+  </div>
+
+  <div class="control-row">
+    <div class="name">Max objects</div>
+    <input id="maxEmojisSlider" type="range" min="10" max="3000" step="10" value="1500">
+    <div class="val" id="maxEmojisVal">1500</div>
+  </div>
+
+  <div class="toggle-row">
+    <div class="name">Objects</div>
+    <div class="segmented" role="group" aria-label="Objects render mode">
+      <button id="objEmojisBtn" class="active" type="button">Emojis</button>
+      <button id="objCharsBtn" type="button">Characters</button>
+    </div>
+  </div>
+
+  <div class="toggle-row">
+    <div class="name">Multiply @</div>
+    <div class="segmented" role="group" aria-label="Multiply spawn mode">
+      <button id="spawnCenterBtn" class="active" type="button">Center</button>
+      <button id="spawnCollisionBtn" type="button">Collision</button>
+      <button id="spawnRandomBtn" type="button">Random</button>
+    </div>
+  </div>
+
+  <div class="toggle-row">
+    <div class="name">Halo</div>
+    <div class="pillbar" aria-label="Halo toggles">
+      <button id="haloObjectsBtn" class="pill active" type="button">Objects</button>
+      <button id="haloFigureBtn" class="pill active" type="button">Figure</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <div class="name">Halo size</div>
+    <input id="haloSizeSlider" type="range" min="0.40" max="2.00" step="0.01" value="1.00">
+    <div class="val" id="haloSizeVal">1.00×</div>
+  </div>
+
+  <div class="row">
+    <button id="playBtn" class="control" title="Play / Stop">▶</button>
+    <button id="restartBtn" class="control" title="Restart">↻</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  const stats = document.getElementById("stats");
+  const speedSlider = document.getElementById("speedSlider");
+  const speedVal = document.getElementById("speedVal");
+  const sizeSlider = document.getElementById("sizeSlider");
+  const sizeVal = document.getElementById("sizeVal");
+  const maxSidesSlider = document.getElementById("maxSidesSlider");
+  const maxSidesVal = document.getElementById("maxSidesVal");
+  const maxEmojisSlider = document.getElementById("maxEmojisSlider");
+  const maxEmojisVal = document.getElementById("maxEmojisVal");
+  const playBtn = document.getElementById("playBtn");
+  const restartBtn = document.getElementById("restartBtn");
+
+  const objEmojisBtn = document.getElementById("objEmojisBtn");
+  const objCharsBtn = document.getElementById("objCharsBtn");
+
+  const spawnCenterBtn = document.getElementById("spawnCenterBtn");
+  const spawnCollisionBtn = document.getElementById("spawnCollisionBtn");
+  const spawnRandomBtn = document.getElementById("spawnRandomBtn");
+
+  const haloObjectsBtn = document.getElementById("haloObjectsBtn");
+  const haloFigureBtn = document.getElementById("haloFigureBtn");
+  const haloSizeSlider = document.getElementById("haloSizeSlider");
+  const haloSizeVal = document.getElementById("haloSizeVal");
+
+  // -------- REAL FPS (based on raw frame time) --------
+  let fpsAvg = 0;
+  let worstFrameMs = 0;
+  let fpsFrames = 0;
+  let fpsAccumMs = 0;
+  let fpsWindowStart = performance.now();
+
+  function updateFPS(rawDtMs, now){
+    fpsFrames++;
+    fpsAccumMs += rawDtMs;
+    if (rawDtMs > worstFrameMs) worstFrameMs = rawDtMs;
+
+    if (now - fpsWindowStart >= 500) { // update ~2x/sec
+      const avgMs = fpsAccumMs / Math.max(1, fpsFrames);
+      fpsAvg = 1000 / Math.max(1e-6, avgMs);
+
+      fpsFrames = 0;
+      fpsAccumMs = 0;
+      worstFrameMs = 0;
+      fpsWindowStart = now;
+    }
+  }
+
+  // -------- Multiply mode --------
+  let spawnMode = "center"; // "center" | "collision" | "random"
+  function setSpawnMode(mode){
+    spawnMode = mode;
+    spawnCenterBtn.classList.toggle("active", mode === "center");
+    spawnCollisionBtn.classList.toggle("active", mode === "collision");
+    spawnRandomBtn.classList.toggle("active", mode === "random");
+  }
+  spawnCenterBtn.addEventListener("click", () => setSpawnMode("center"));
+  spawnCollisionBtn.addEventListener("click", () => setSpawnMode("collision"));
+  spawnRandomBtn.addEventListener("click", () => setSpawnMode("random"));
+
+  // -------- Objects mode: emojis / characters --------
+  let objectsMode = "emojis"; // "emojis" | "chars"
+  function setObjectsMode(mode){
+    objectsMode = mode;
+    objEmojisBtn.classList.toggle("active", mode === "emojis");
+    objCharsBtn.classList.toggle("active", mode === "chars");
+    draw(); // immediate
+  }
+  objEmojisBtn.addEventListener("click", () => setObjectsMode("emojis"));
+  objCharsBtn.addEventListener("click", () => setObjectsMode("chars"));
+
+  // -------- Halo controls (quantized scale for caching) --------
+  let haloObjectsOn = true;
+  let haloFigureOn = true;
+
+  let haloScaleRaw = parseFloat(haloSizeSlider.value);
+  const HALO_SCALE_STEP = 0.05;
+  function quantizeHaloScale(x){
+    const q = Math.round(x / HALO_SCALE_STEP) * HALO_SCALE_STEP;
+    return Math.max(0.40, Math.min(2.00, +q.toFixed(2)));
+  }
+  let haloScaleQ = quantizeHaloScale(haloScaleRaw);
+
+  function syncHaloUI(){
+    haloObjectsBtn.classList.toggle("active", haloObjectsOn);
+    haloFigureBtn.classList.toggle("active", haloFigureOn);
+    haloSizeVal.textContent = haloScaleRaw.toFixed(2) + "×";
+  }
+  haloObjectsBtn.addEventListener("click", () => { haloObjectsOn = !haloObjectsOn; syncHaloUI(); draw(); });
+  haloFigureBtn.addEventListener("click", () => { haloFigureOn = !haloFigureOn; syncHaloUI(); draw(); });
+  haloSizeSlider.addEventListener("input", () => {
+    haloScaleRaw = parseFloat(haloSizeSlider.value);
+    haloScaleQ = quantizeHaloScale(haloScaleRaw);
+    syncHaloUI();
+    draw();
+  });
+
+  // -------- Polygon state --------
+  let sides = 3;
+  let maxSides = parseInt(maxSidesSlider.value, 10);
+  const startAngle = -Math.PI / 2;
+
+  let polyCenter = { x: window.innerWidth/2, y: window.innerHeight/2 };
+  const center = () => polyCenter;
+
+  let basePolyRadius = 0;
+  let sizeFactor = parseFloat(sizeSlider.value);
+  const R = () => basePolyRadius * sizeFactor;
+
+  // Draw cache
+  let drawVerts = [];
+  let drawCacheDirty = true;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    canvas.style.width  = window.innerWidth + "px";
+    canvas.style.height = window.innerHeight + "px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    basePolyRadius = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.35;
+
+    const margin = 40;
+    polyCenter.x = Math.min(Math.max(polyCenter.x, margin), canvas.clientWidth - margin);
+    polyCenter.y = Math.min(Math.max(polyCenter.y, margin), canvas.clientHeight - margin);
+
+    drawCacheDirty = true;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // -------- Symbol sets --------
+  const emojiSet = [
+    "😮","😲","😳","🤯","😵","😱","😨","😰","😥","😓",
+    "😧","😦","😯","😶","🙃","😬","😑","😐","😒","🤨",
+    "😏","😣","😖","😫","😩","🥴","🤢","🤮","😴","🤤",
+    "😪","😔","😕","🙁","☹️","😟","😢","😭","😤","😠",
+    "😡","🤬","😈","👿","🤠","😎","🤓","🧐","😝","😜",
+    "😛","😋","🤪","😅","😂","🤣","😊","😇","🙂","😉",
+    "😍","🥰","😘","😗","😙","😚","😺","😸","😹","😻"
+  ];
+
+  // Characters set: latin + PL + digits + punctuation + symbols (curated)
+  const charsSet = (() => {
+    const out = [];
+    const pushRange = (a,b) => { for (let c=a.charCodeAt(0); c<=b.charCodeAt(0); c++) out.push(String.fromCharCode(c)); };
+    pushRange("A","Z");
+    pushRange("a","z");
+    pushRange("0","9");
+
+    // Polish letters
+    const pl = ["ą","ć","ę","ł","ń","ó","ś","ź","ż","Ą","Ć","Ę","Ł","Ń","Ó","Ś","Ź","Ż"];
+    out.push(...pl);
+
+    // Punctuation / math / currency / arrows / box drawing / misc
+    out.push(...[
+      "•","·","×","÷","±","≈","≠","≤","≥","∞","√","∑","∏","∫","∂","∆","∇",
+      "€","£","$","¥","₿","¢","¤",
+      "→","←","↑","↓","↔","↕","⇢","⇠","⇧","⇩",
+      "◇","◆","□","■","○","●","△","▲","▽","▼","☆","★","✶","✹","✦",
+      "©","®","™","§","¶","°","µ","‰","†","‡",
+      "α","β","γ","δ","ε","λ","π","σ","φ","ω","Ω",
+      "┌","┐","└","┘","├","┤","┬","┴","┼","─","│","╱","╲","╳",
+      "¿","¡","«","»","“","”","‘","’","…"
+    ]);
+
+    // remove duplicates
+    return Array.from(new Set(out));
+  })();
+
+  let symbolIndex = 0;
+  function nextSymbolIdx() {
+    const idx = symbolIndex;
+    symbolIndex++;
+    return idx;
+  }
+
+  const baseRadius = 10;
+  const baseSpeed = 140;
+  let speedFactor = parseFloat(speedSlider.value);
+  let maxObjects = parseInt(maxEmojisSlider.value, 10);
+
+  function syncSliderLabels(){
+    speedVal.textContent = speedFactor.toFixed(2) + "×";
+    sizeVal.textContent = sizeFactor.toFixed(2) + "×";
+    maxSidesVal.textContent = String(maxSides);
+    maxEmojisVal.textContent = String(maxObjects);
+  }
+
+  speedSlider.addEventListener("input", () => { speedFactor = parseFloat(speedSlider.value); syncSliderLabels(); });
+  sizeSlider.addEventListener("input", () => { sizeFactor = parseFloat(sizeSlider.value); drawCacheDirty = true; syncSliderLabels(); draw(); });
+
+  maxSidesSlider.addEventListener("input", () => {
+    maxSides = parseInt(maxSidesSlider.value, 10);
+    if (sides > maxSides) { sides = maxSides; drawCacheDirty = true; }
+    syncSliderLabels(); draw();
+  });
+
+  maxEmojisSlider.addEventListener("input", () => {
+    maxObjects = parseInt(maxEmojisSlider.value, 10);
+    if (balls.length > maxObjects) balls.length = maxObjects;
+    syncSliderLabels(); draw();
+  });
+
+  // -------- Color helpers --------
+  function randomColorHSL() {
+    const h = Math.floor(Math.random() * 360);
+    const s = 70 + Math.random() * 20;
+    const l = 55 + Math.random() * 10;
+    return { h, s, l };
+  }
+  const hslaStr = (c, a) => `hsla(${c.h}, ${c.s}%, ${c.l}%, ${a})`;
+  function colorKey(c){ return `${Math.round(c.h)},${Math.round(c.s)},${Math.round(c.l)}`; }
+
+  // -------- Sprite caches --------
+  const spriteSize = baseRadius * 3;
+  const emojiFontSize = baseRadius * 2.6;
+
+  // Cache for emojis
+  const emojiSpriteCache = new Map(); // key: emoji -> canvas
+  // Cache for chars
+  const charSpriteCache = new Map();  // key: char -> canvas
+
+  function makeSpriteForText(ch){
+    const off = document.createElement("canvas");
+    off.width = spriteSize;
+    off.height = spriteSize;
+    const octx = off.getContext("2d");
+    octx.textAlign = "center";
+    octx.textBaseline = "middle";
+    // monospace-ish for “character mode”
+    octx.font = `${emojiFontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace`;
+    octx.fillStyle = "#ffffff";
+    octx.fillText(ch, spriteSize/2, spriteSize/2);
+    return off;
+  }
+
+  function makeSpriteForEmoji(e){
+    const off = document.createElement("canvas");
+    off.width = spriteSize;
+    off.height = spriteSize;
+    const octx = off.getContext("2d");
+    octx.textAlign = "center";
+    octx.textBaseline = "middle";
+    octx.font = `${emojiFontSize}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+    octx.fillText(e, spriteSize/2, spriteSize/2);
+    return off;
+  }
+
+  function getSpriteForIndex(symbolIdx){
+    if (objectsMode === "chars") {
+      const ch = charsSet[symbolIdx % charsSet.length];
+      let spr = charSpriteCache.get(ch);
+      if (!spr) { spr = makeSpriteForText(ch); charSpriteCache.set(ch, spr); }
+      return spr;
+    } else {
+      const e = emojiSet[symbolIdx % emojiSet.length];
+      let spr = emojiSpriteCache.get(e);
+      if (!spr) { spr = makeSpriteForEmoji(e); emojiSpriteCache.set(e, spr); }
+      return spr;
+    }
+  }
+
+  // -------- Halo base + caches --------
+  const haloBaseSize = baseRadius * 7;
+  const haloBaseCanvas = document.createElement("canvas");
+  haloBaseCanvas.width = haloBaseCanvas.height = haloBaseSize;
+  const hb = haloBaseCanvas.getContext("2d");
+  const g0 = hb.createRadialGradient(haloBaseSize/2, haloBaseSize/2, 0, haloBaseSize/2, haloBaseSize/2, haloBaseSize/2);
+  g0.addColorStop(0, "rgba(255,255,255,1)");
+  g0.addColorStop(1, "rgba(255,255,255,0)");
+  hb.fillStyle = g0;
+  hb.beginPath();
+  hb.arc(haloBaseSize/2, haloBaseSize/2, haloBaseSize/2, 0, Math.PI*2);
+  hb.fill();
+
+  const haloColorCache = new Map();              // colorKey -> base tinted canvas
+  const haloScaledCache = new Map();             // `${colorKey}|${scaleQ}` -> scaled canvas
+  const HALO_COLOR_CACHE_MAX = 6000;
+  const HALO_SCALED_CACHE_MAX = 9000;
+
+  function getColoredHaloBase(color){
+    const key = colorKey(color);
+    let c = haloColorCache.get(key);
+    if (c) return c;
+
+    const off = document.createElement("canvas");
+    off.width = haloBaseSize;
+    off.height = haloBaseSize;
+    const octx = off.getContext("2d");
+    octx.drawImage(haloBaseCanvas, 0, 0);
+    octx.globalCompositeOperation = "source-in";
+    octx.fillStyle = hslaStr(color, 0.45);
+    octx.fillRect(0,0,haloBaseSize,haloBaseSize);
+
+    haloColorCache.set(key, off);
+    if (haloColorCache.size > HALO_COLOR_CACHE_MAX) {
+      haloColorCache.delete(haloColorCache.keys().next().value);
+    }
+    return off;
+  }
+
+  function getScaledHaloSprite(color, scaleQ){
+    const key = `${colorKey(color)}|${scaleQ}`;
+    let spr = haloScaledCache.get(key);
+    if (spr) return spr;
+
+    const base = getColoredHaloBase(color);
+    const scaledSize = Math.max(2, Math.round(haloBaseSize * scaleQ));
+
+    const off = document.createElement("canvas");
+    off.width = scaledSize;
+    off.height = scaledSize;
+    const octx = off.getContext("2d");
+    octx.drawImage(base, 0, 0, scaledSize, scaledSize);
+
+    haloScaledCache.set(key, off);
+    if (haloScaledCache.size > HALO_SCALED_CACHE_MAX) {
+      haloScaledCache.delete(haloScaledCache.keys().next().value);
+    }
+    return off;
+  }
+
+  // -------- Balls --------
+  let balls = [];
+
+  function makeBallAt(x, y) {
+    return {
+      r: baseRadius,
+      x, y,
+      dir: Math.random() * Math.PI * 2,
+      color: randomColorHSL(),
+      symbolIdx: nextSymbolIdx()
+    };
+  }
+
+  function randomPointInside() {
+    const c = center();
+    const rad = R();
+    const rr = rad * Math.sqrt(Math.random());
+    const ang = Math.random() * Math.PI * 2;
+    return { x: c.x + rr * Math.cos(ang), y: c.y + rr * Math.sin(ang) };
+  }
+
+  function resetSimulation() {
+    sides = 3;
+    symbolIndex = 0;
+    polyCenter = { x: canvas.clientWidth/2, y: canvas.clientHeight/2 };
+    balls = [makeBallAt(polyCenter.x, polyCenter.y)];
+    if (balls.length > maxObjects) balls.length = maxObjects;
+    drawCacheDirty = true;
+    polyGlow.active = false;
+    draw();
+  }
+
+  // -------- Geometry / collision --------
+  const dot = (a,b) => a.x*b.x + a.y*b.y;
+  const sub = (a,b) => ({x:a.x-b.x, y:a.y-b.y});
+  const mul = (a,s) => ({x:a.x*s, y:a.y*s});
+  function reflect(v, n){
+    const vn = dot(v, n);
+    return sub(v, mul(n, 2*vn));
+  }
+
+  function nearestSideInfo(px, py, n) {
+    const c = center();
+    const dx = px - c.x, dy = py - c.y;
+    const r = Math.hypot(dx, dy);
+    const theta = Math.atan2(dy, dx);
+
+    const sector = (2*Math.PI)/n;
+    const apothem = R() * Math.cos(Math.PI/n);
+
+    const t = theta - startAngle;
+    const tWrapped = ((t % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+    const k = Math.floor(tWrapped / sector);
+    const normalAngle = startAngle + (k + 0.5) * sector;
+
+    const alpha = tWrapped - (k + 0.5) * sector;
+    const boundaryDist = apothem / Math.cos(alpha);
+
+    const outwardN = { x: Math.cos(normalAngle), y: Math.sin(normalAngle) };
+    const inwardN  = { x: -outwardN.x, y: -outwardN.y };
+
+    return { r, theta, boundaryDist, inwardN };
+  }
+
+  function rebuildDrawVerts() {
+    drawVerts = [];
+    const n = sides;
+    const c = center();
+    const rad = R();
+    const sector = 2*Math.PI/n;
+
+    const maxDrawPoints = 1200;
+    const step = Math.max(1, Math.ceil(n / maxDrawPoints));
+
+    for (let i = 0; i < n; i += step) {
+      const ang = startAngle + i * sector;
+      drawVerts.push({ x: c.x + rad * Math.cos(ang), y: c.y + rad * Math.sin(ang) });
+    }
+    drawCacheDirty = false;
+  }
+
+  function drawPolygonPath() {
+    if (!drawVerts.length) return;
+    ctx.beginPath();
+    ctx.moveTo(drawVerts[0].x, drawVerts[0].y);
+    for (let i=1;i<drawVerts.length;i++) ctx.lineTo(drawVerts[i].x, drawVerts[i].y);
+    ctx.closePath();
+  }
+
+  // -------- Figure glow --------
+  const polyGlow = { active:false, t:0, color:{h:0,s:80,l:60} };
+  const GLOW_DURATION = 0.22;
+  function triggerPolyGlow() {
+    polyGlow.active = true;
+    polyGlow.t = 0;
+    polyGlow.color = randomColorHSL();
+  }
+
+  // -------- Audio (stable, no clicks) --------
+  let audioCtx = null;
+  let masterGain, osc, compressor;
+  let lastBopTime = 0;
+  const BOP_COOLDOWN = 0.05;
+
+  function ensureAudio() {
+    if (audioCtx) {
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return;
+    }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-24, audioCtx.currentTime);
+    compressor.knee.setValueAtTime(30, audioCtx.currentTime);
+    compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+    compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+    compressor.release.setValueAtTime(0.08, audioCtx.currentTime);
+
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.0;
+
+    osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 260;
+
+    osc.connect(masterGain).connect(compressor).connect(audioCtx.destination);
+    osc.start();
+  }
+
+  function bopSound(intensity = 1) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+
+    if (now - lastBopTime < BOP_COOLDOWN) return;
+    lastBopTime = now;
+
+    const vol = Math.min(0.12, 0.03 + intensity * 0.01);
+    const f0 = 220 + Math.min(500, intensity * 80);
+    const f1 = f0 * 0.85;
+
+    masterGain.gain.cancelScheduledValues(now);
+    osc.frequency.cancelScheduledValues(now);
+
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.exponentialRampToValueAtTime(vol, now + 0.004);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+
+    osc.frequency.setValueAtTime(f0, now);
+    osc.frequency.exponentialRampToValueAtTime(f1, now + 0.06);
+  }
+
+  // -------- Loop --------
+  let running = false;
+  let rafId = null;
+  let lastNow = performance.now();
+
+  function stopAndReset(){
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    resetSimulation();
+    playBtn.textContent = "▶";
+  }
+
+  function startRunning(){
+    ensureAudio();
+    running = true;
+    lastNow = performance.now();
+    playBtn.textContent = "■";
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function tick(now){
+    if (!running) return;
+
+    const rawDtMs = now - lastNow;
+    lastNow = now;
+
+    updateFPS(rawDtMs, now);
+
+    // use clamped dt ONLY for physics stability
+    const dt = Math.min(0.02, rawDtMs / 1000);
+
+    const speedMag = baseSpeed * speedFactor;
+    const newBalls = [];
+    let collisionsThisFrame = 0;
+
+    for (let i = 0; i < balls.length; i++) {
+      const b = balls[i];
+
+      const vx = Math.cos(b.dir) * speedMag;
+      const vy = Math.sin(b.dir) * speedMag;
+
+      b.x += vx * dt;
+      b.y += vy * dt;
+
+      const info = nearestSideInfo(b.x, b.y, sides);
+      if (info.r + b.r >= info.boundaryDist) {
+        const c = center();
+        const safeR = info.boundaryDist - b.r - 0.5;
+
+        b.x = c.x + safeR * Math.cos(info.theta);
+        b.y = c.y + safeR * Math.sin(info.theta);
+
+        const vr = reflect({x:vx, y:vy}, info.inwardN);
+        b.dir = Math.atan2(vr.y, vr.x);
+
+        if (sides < maxSides) { sides += 1; drawCacheDirty = true; }
+
+        if (balls.length + newBalls.length < maxObjects) {
+          if (spawnMode === "collision") {
+            newBalls.push(makeBallAt(b.x, b.y));
+          } else if (spawnMode === "random") {
+            const p = randomPointInside();
+            newBalls.push(makeBallAt(p.x, p.y));
+          } else {
+            const c0 = center();
+            newBalls.push(makeBallAt(c0.x, c0.y));
+          }
+        }
+
+        collisionsThisFrame++;
+      }
+    }
+
+    if (newBalls.length) {
+      balls.push(...newBalls);
+      if (balls.length > maxObjects) balls.length = maxObjects;
+    }
+
+    if (collisionsThisFrame > 0) {
+      const intensity = 1 + Math.log2(collisionsThisFrame);
+      bopSound(intensity);
+      triggerPolyGlow();
+    }
+
+    if (polyGlow.active) {
+      polyGlow.t += dt;
+      if (polyGlow.t >= GLOW_DURATION) polyGlow.active = false;
+    }
+
+    draw();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function draw(){
+    if (drawCacheDirty) rebuildDrawVerts();
+    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+
+    // Figure ring glow
+    if (haloFigureOn && polyGlow.active) {
+      const p = polyGlow.t / GLOW_DURATION;
+      const alpha = (1 - p) * 0.7;
+      const c = center();
+      const rad = R();
+
+      const ringWBase = Math.min(20, rad * 0.10);
+      const ringW = Math.max(2, ringWBase * haloScaleQ);
+      const rInner = Math.max(0, rad - ringW);
+
+      ctx.save();
+      drawPolygonPath();
+      ctx.clip();
+
+      const g = ctx.createRadialGradient(c.x, c.y, rInner, c.x, c.y, rad);
+      g.addColorStop(0.00, hslaStr(polyGlow.color, 0.0));
+      g.addColorStop(0.65, hslaStr(polyGlow.color, alpha * 0.5));
+      g.addColorStop(1.00, hslaStr(polyGlow.color, alpha));
+
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = g;
+      ctx.fillRect(c.x - rad, c.y - rad, rad * 2, rad * 2);
+
+      ctx.restore();
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    // polygon outline
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#9aa4ff";
+    drawPolygonPath();
+    ctx.stroke();
+
+    // halos for objects (cached, scaled once)
+    if (haloObjectsOn) {
+      ctx.globalCompositeOperation = "lighter";
+      for (const b of balls) {
+        const spr = getScaledHaloSprite(b.color, haloScaleQ);
+        const s = spr.width;
+        ctx.drawImage(spr, b.x - s/2, b.y - s/2);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    // draw objects
+    for (const b of balls) {
+      const spr = getSpriteForIndex(b.symbolIdx);
+      ctx.drawImage(spr, b.x - spriteSize/2, b.y - spriteSize/2);
+    }
+
+    const speedMag = baseSpeed * speedFactor;
+    stats.textContent =
+      `Sides: ${sides} / ${maxSides}   ` +
+      `Objects: ${balls.length.toLocaleString()} / ${maxObjects.toLocaleString()}   ` +
+      `Speed: ${speedMag.toFixed(0)} px/s   ` +
+      `Size: ${sizeFactor.toFixed(2)}×   ` +
+      `FPS: ${fpsAvg.toFixed(0)}`;
+  }
+
+  // -------- Buttons --------
+  playBtn.addEventListener("click", () => {
+    if (running) stopAndReset();
+    else startRunning();
+  });
+  restartBtn.addEventListener("click", () => {
+    stopAndReset();
+    startRunning();
+  });
+
+  // -------- Drag / stir polygon --------
+  let isDragging = false;
+  let dragOffset = {x:0, y:0};
+  let lastDragPos = null;
+  let lastDragTime = 0;
+  let dragVel = {x:0, y:0};
+
+  function pointerPos(e){
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function insideFigure(p){
+    const c = center();
+    const r = Math.hypot(p.x - c.x, p.y - c.y);
+    return r <= R() + 30;
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    const p = pointerPos(e);
+    if (!insideFigure(p)) return;
+    canvas.setPointerCapture(e.pointerId);
+    isDragging = true;
+    dragOffset.x = p.x - polyCenter.x;
+    dragOffset.y = p.y - polyCenter.y;
+    lastDragPos = p;
+    lastDragTime = performance.now();
+    dragVel = {x:0, y:0};
+  });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (!isDragging) return;
+    const p = pointerPos(e);
+    const now = performance.now();
+
+    polyCenter.x = p.x - dragOffset.x;
+    polyCenter.y = p.y - dragOffset.y;
+    drawCacheDirty = true;
+
+    if (lastDragPos) {
+      const dt = Math.max(1, now - lastDragTime);
+      dragVel.x = (p.x - lastDragPos.x) / dt;
+      dragVel.y = (p.y - lastDragPos.y) / dt;
+    }
+    lastDragPos = p;
+    lastDragTime = now;
+  });
+
+  function releaseDrag(){
+    if (!isDragging) return;
+    isDragging = false;
+
+    const impulseScale = 900;
+    const impulseX = dragVel.x * impulseScale;
+    const impulseY = dragVel.y * impulseScale;
+
+    if (Math.hypot(impulseX, impulseY) > 5) {
+      for (const b of balls) {
+        const speedMag = baseSpeed * speedFactor;
+        const vx = Math.cos(b.dir) * speedMag + impulseX;
+        const vy = Math.sin(b.dir) * speedMag + impulseY;
+        b.dir = Math.atan2(vy, vx);
+      }
+    }
+  }
+
+  canvas.addEventListener("pointerup", (e) => {
+    canvas.releasePointerCapture(e.pointerId);
+    releaseDrag();
+  });
+  canvas.addEventListener("pointercancel", releaseDrag);
+
+  // -------- init --------
+  function syncAllUI(){
+    syncSliderLabels();
+    syncHaloUI();
+  }
+
+  syncAllUI();
+  resetSimulation();
+  playBtn.textContent = "▶";
+  setSpawnMode("center");
+  setObjectsMode("emojis");
+})();
+</script>
+</body>
+</html>
